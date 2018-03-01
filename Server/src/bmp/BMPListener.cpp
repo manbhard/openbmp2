@@ -149,7 +149,7 @@ void BMPListener::open_socket(bool ipv4, bool ipv6) {
  * \param [out] c           Ref to client info - this will be updated based on accepted connection
  * \param [in]  timeout     Timeout in ms to wait for
  *
- * \return  True if accepted a connection, false if not (timed out waiting)
+ * \return  True if accepted a connection, false if not (timed out waiting or due to configuration)
  */
 bool BMPListener::wait_and_accept_connection(ClientInfo &c, int timeout) {
     pollfd pfd[4];
@@ -198,10 +198,12 @@ bool BMPListener::wait_and_accept_connection(ClientInfo &c, int timeout) {
 
         else {
             if (cur_sock == sock)  // IPv4
-                accept_connection(c, true);
+                if (accept_connection(c, true))
+                    return false;
 
             else // IPv6
-                accept_connection(c, false);
+                if (accept_connection(c, false))
+                    return false;
 		
 	    gettimeofday(&c.startTime, NULL);	// Stores the start time for client	
 
@@ -222,8 +224,10 @@ bool BMPListener::wait_and_accept_connection(ClientInfo &c, int timeout) {
  *
  * \param [out]  c       Client information reference to where the client info will be stored
  * \param [in]   isIPv4  True to indicate if IPv4, false if IPv6
+ *
+ * \return  True if not accepting a connection per configuration
  */
-void BMPListener::accept_connection(ClientInfo &c, bool isIPv4) {
+bool BMPListener::accept_connection(ClientInfo &c, bool isIPv4) {
     socklen_t c_addr_len = sizeof(c.c_addr);         // the client info length
     socklen_t s_addr_len = sizeof(c.s_addr);         // the client info length
     c.initRec=false;				     // To indicate INIT message not received
@@ -255,6 +259,16 @@ void BMPListener::accept_connection(ClientInfo &c, bool isIPv4) {
         snprintf(c.c_port, sizeof(c.c_port), "%hu", ntohs(v6_addr->sin6_port));
     }
 
+    // Check if the client is blocked per configuration
+    for (size_t i=0; i < cfg->blocked_peers.size(); i++) {
+        if (strncmp(c.c_ip, cfg->blocked_peers.at(i).c_str(), strlen(c.c_ip)) == 0) {
+            LOG_INFO("Blocking peer %s per configuration", c.c_ip);
+            close(c.c_sock);
+            return true;
+        }
+    }
+
+
     // Get the server source address and port
     v4_addr = (sockaddr_in *) &c.s_addr;
     v6_addr = (sockaddr_in6 *) &c.s_addr;
@@ -281,6 +295,8 @@ void BMPListener::accept_connection(ClientInfo &c, bool isIPv4) {
     }
     
     hashRouter(c);
+
+    return false;
 }
 
 /**

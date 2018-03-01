@@ -113,8 +113,10 @@ private:
      *
      * \param [out]  c  Client information reference to where the client info will be stored
      * \param [in]   isIPv4  True to indicate if IPv4, false if IPv6
+     *
+     * \return  True if not accepting a connection per configuration
      */
-    void accept_connection(ClientInfo &c, bool isIPv4);
+    bool accept_connection(ClientInfo &c, bool isIPv4);
 
 };
 

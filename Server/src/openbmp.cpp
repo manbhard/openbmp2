@@ -21,6 +21,7 @@
 #include "client_thread.h"
 #include "openbmpd_version.h"
 #include "Config.h"
+#include "Grpc.h"
 
 #include <unistd.h>
 #include <fstream>
@@ -551,6 +552,27 @@ void runServer(Config &cfg) {
 }
 
 /**
+ * GrpcRun - runs the grpc server thread
+ *
+ *    This method is a function wrapper to run the Grpc server
+ *    instance.
+ */
+void *GrpcRun(void *arg) {
+    Grpc *grpc_server = (Grpc *)arg;
+
+    try {
+        // Run the server
+        grpc_server->RunServer();
+    } catch (const char *err) {
+        LOG_ERR("Exiting since Grpc failed to start: %s", err);
+    }
+
+    pthread_exit(0);
+
+    return (void *)NULL;
+}
+
+/**
  * main function
  */
 int main(int argc, char **argv) {
@@ -616,8 +638,31 @@ int main(int argc, char **argv) {
     sigaction(SIGUSR1, &sigact, NULL);
     sigaction(SIGUSR2, &sigact, NULL);
 
+    //Start grpc server thread
+    /*
+ * Set up the thread info
+ */
+    pthread_attr_t thr_attr;                                // thread attribute
+    pthread_t thr;
+
+    // set thread attributes
+    pthread_attr_init(&thr_attr);
+    pthread_attr_setdetachstate(&thr_attr, PTHREAD_CREATE_DETACHED);
+    pthread_attr_setscope(&thr_attr, PTHREAD_SCOPE_SYSTEM);
+
+
+    /*
+     * Initialize the BGP manager instance and run as a thread
+     */
+    Grpc *grpc_server = new Grpc(logger, &cfg, &thr_list);
+    pthread_create(&thr,  &thr_attr, GrpcRun, (void *)grpc_server);
+
+    // Free the thread attribute
+    pthread_attr_destroy(&thr_attr);
+
     // Run the server (loop)
     runServer(cfg);
+    delete grpc_server;
 
 	LOG_NOTICE("Program ended normally");
 

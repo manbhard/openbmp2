@@ -56,6 +56,9 @@ Config::Config() {
     pat_enabled		= false;
     bzero(admin_id, sizeof(admin_id));
 
+    interfaceConfig.grpc_port = 50051;
+    interfaceConfig.secure = false;
+
     /*
      * Initialized the kafka topic names
      *      The keys match the configuration node/vars. Topic name nodes will be ignored if
@@ -105,6 +108,10 @@ void Config::load(const char *cfg_filename) {
                         parseKafka(node);
                     else if (key.compare("mapping") == 0)
                         parseMapping(node);
+                    else if (key.compare("interface") == 0)
+                        parseInterface(node);
+                    else if (key.compare("blocked_peers") == 0)
+                        parseBlockedPeers(node);
 
                     else if (debug_general)
                         std::cout << "   Config: Key " << key << " Type " << node.Type() << std::endl;
@@ -357,6 +364,18 @@ void Config::parseDebug(const YAML::Node &node) {
 
         } catch (YAML::TypedBadConversion<bool> err) {
             printWarning("debug.msgbus is not of type boolean", node["msgbus"]);
+        }
+    }
+
+    if (!debug_grpc and node["grpc"]) {
+        try {
+            debug_msgbus = node["grpc"].as<bool>();
+
+            if (debug_general)
+                std::cout << "   Config: debug grpc : " << debug_grpc << std::endl;
+
+        } catch (YAML::TypedBadConversion<bool> err) {
+            printWarning("debug.grpc is not of type boolean", node["msgbus"]);
         }
     }
 }
@@ -722,6 +741,61 @@ void Config::parseMapping(const YAML::Node &node) {
             }
         }
 
+    }
+}
+
+/**
+ * Parse the interface (grpc) configuration
+ *
+ * \param [in] node     Reference to the yaml NODE
+ */
+void Config::parseInterface(const YAML::Node &node) {
+    if (node["grpc_port"]) {
+        try {
+            interfaceConfig.grpc_port = node["grpc_port"].as<uint16_t>();
+
+            if (interfaceConfig.grpc_port < 25 || interfaceConfig.grpc_port > 65535)
+                throw "invalid grpc_port, not within range of 25 - 65535)";
+
+            if (debug_general)
+                std::cout << "   Config: grpc_port: " << interfaceConfig.grpc_port << std::endl;
+
+        } catch (YAML::TypedBadConversion<uint16_t> err) {
+            printWarning("grpc_port is not of type unsigned 16 bit", node["grpc_port"]);
+        }
+    }
+
+    if (node["secure"]) {
+        try {
+            interfaceConfig.secure = node["secure"].as<bool>();
+
+            if (debug_general)
+                std::cout << "   Config: grpc_port security: " << interfaceConfig.secure << std::endl;
+
+        } catch (YAML::TypedBadConversion<bool> err) {
+            printWarning("grpc_port security is not of type bool", node["secure"]);
+        }
+    }
+}
+
+/**
+ * Parse Blocked peers and update the blocked peers array
+ *
+ * \param [in]  node     regex list node - should be of type sequence
+ */
+void Config::parseBlockedPeers(const YAML::Node &node) {
+    std::string value;
+
+    for (std::size_t i = 0; i < node.size(); i++) {
+        try {
+            value = node[i].as<std::string>();
+            blocked_peers.push_back(value);
+
+        } catch (YAML::TypedBadConversion <std::string> err) {
+            printWarning("Blocked peer is not of type string", node[i]);
+        }
+
+        std::cout << "   Config: Blocking peer: " << node[i].as<std::string>() << std::endl;
     }
 }
 

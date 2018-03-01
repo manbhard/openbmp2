@@ -7,7 +7,7 @@ set (OPENBMP_VER_PATCH "0")
 set (OPENBMP_VER_RELEASE "pre5")
 set (OPENBMPD_VERSION "${OPENBMP_VER_MAJOR}.${OPENBMP_VER_MINOR}.${OPENBMP_VER_PATCH}-${OPENBMP_VER_RELEASE}")
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required(VERSION 2.8)
 project (OPENBMP)
 
 # find and include boost
@@ -18,7 +18,7 @@ find_package( Boost 1.41.0 REQUIRED)
 
 # Configure the version for compiling
 configure_file( openbmpd_version.h.in ${CMAKE_BINARY_DIR}/generated/openbmpd_version.h )
-include_directories( ${CMAKE_BINARY_DIR}/generated/ ) 
+include_directories( ${CMAKE_BINARY_DIR}/generated/  ${CMAKE_BINARY_DIR}/Server/)
 
 if (CMAKE_SYSTEM_NAME STREQUAL Linux)
     set(LINUX TRUE)
@@ -30,6 +30,7 @@ endif()
 
 # Add the Server directory
 add_subdirectory (Server)
+add_subdirectory (Server/test)
 
 FIND_PROGRAM(DPKG_CMD dpkg)
 IF(DPKG_CMD)

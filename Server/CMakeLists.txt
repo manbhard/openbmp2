@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 2.8)
 # find openssl
 find_package( OpenSSL 1)
 if (OPENSSL_FOUND)
@@ -7,6 +8,11 @@ else()
     set(SSL_LIBS )
 endif()
 
+# Protobuf
+include(FindProtobuf)
+find_package(Protobuf REQUIRED)
+
+find_package(ZLIB REQUIRED)
 
 
 # Find and set the env for the mysql c++ connector
@@ -67,10 +73,44 @@ find_library(LIBRT_LIBRARY
         lib64
         lib)
 
+find_path(LIBGRPC++_INCLUDE_DIR
+        NAMES
+        grpc++/grpc++.h
+        HINTS
+        ${HINT_ROOT_DIR}
+        PATH_SUFFIXES
+        include)
+
+find_library(LIBGRPC++_LIBRARY
+        NAMES
+        libgrpc++.a grpc++
+        HINTS
+        ${HINT_ROOT_DIR}
+        PATH_SUFFIXES
+        lib64
+        lib)
+
+find_path(LIBGRPC_INCLUDE_DIR
+        NAMES
+        grpc/grpc.h
+        HINTS
+        ${HINT_ROOT_DIR}
+        PATH_SUFFIXES
+        include)
+
+find_library(LIBGRPC_LIBRARY
+        NAMES
+        libgrpc.a grpc
+        HINTS
+        ${HINT_ROOT_DIR}
+        PATH_SUFFIXES
+        lib64
+        lib)
+
 if (NOT LIBRDKAFKA_INCLUDE_DIR OR NOT LIBRDKAFKA_LIBRARY OR NOT LIBRDKAFKA_CPP_LIBRARY)
-	Message (FATAL_ERROR "Librdkafka was not found, cannot proceed.  Visit https://github.com/edenhill/librdkafka for details on how to install it.")
-#else ()
-#	Message ("lib = " ${LIBRDKAFKA_LIBRARY})
+    Message (FATAL_ERROR "Librdkafka was not found, cannot proceed.  Visit https://github.com/edenhill/librdkafka for details on how to install it.")
+    #else ()
+    #	Message ("lib = " ${LIBRDKAFKA_LIBRARY})
 endif()
 
 if (NOT LIBYAML_CPP_INCLUDE_DIR OR NOT LIBYAML_CPP_LIBRARY)
@@ -81,8 +121,37 @@ if (NOT LIBRT_LIBRARY AND NOT MACOSX)
     Message (FATAL_ERROR "librt was not found, cannot proceed.")
 endif()
 
+if (NOT LIBGRPC++_INCLUDE_DIR OR NOT LIBGRPC++_LIBRARY)
+    Message (FATAL_ERROR "Libgrpc++ was not found, cannot proceed.  Visit https://github.com/grpc/grpc/blob/master/INSTALL.md for install details.")
+endif()
+
+if (NOT LIBGRPC_INCLUDE_DIR OR NOT LIBGRPC_LIBRARY)
+    Message (FATAL_ERROR "Libgrpc was not found, cannot proceed.  Visit https://github.com/grpc/grpc/blob/master/INSTALL.md for install details.")
+endif()
+
+# gRPC C++ plugin
+get_target_property(gRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin
+        LOCATION)
+
+# Proto file
+get_filename_component(openbmp_proto "../proto/openbmp.proto" ABSOLUTE)
+get_filename_component(openbmp_proto_path "${openbmp_proto}" PATH)
+
+# Generated sources
+protobuf_generate_cpp(openbmp_proto_srcs openbmp_proto_hdrs "${openbmp_proto}")
+set(openbmp_grpc_srcs "${CMAKE_CURRENT_BINARY_DIR}/openbmp.grpc.pb.cc")
+set(openbmp_grpc_hdrs "${CMAKE_CURRENT_BINARY_DIR}/openbmp.grpc.pb.h")
+#TODO: The grpc_cpp_plugin path should be relative
+add_custom_command(
+        OUTPUT "${openbmp_grpc_srcs}" "${openbmp_grpc_hdrs}"
+        COMMAND protoc
+        ARGS --grpc_out "${CMAKE_CURRENT_BINARY_DIR}" -I "${openbmp_proto_path}"
+        --plugin=protoc-gen-grpc="/usr/local/bin/grpc_cpp_plugin"
+        "${openbmp_proto}"
+        DEPENDS "${openbmp_proto}")
+
 # Update the include dir
-include_directories(${LIBRDKAFKA_INCLUDE_DIR} ${LIBYAML_CPP_INCLUDE_DIR} src/ src/bmp src/bgp src/bgp/linkstate src/kafka)
+include_directories(${LIBRDKAFKA_INCLUDE_DIR} ${LIBYAML_CPP_INCLUDE_DIR} src/ src/bmp src/bgp src/bgp/linkstate src/kafka src/grpc ${PROTOBUF_INCLUDE_DIR} ${LIBGRPC++_INCLUDE_DIR} ${LIBGRPC_INCLUDE_DIR} ${ZLIB_INCLUDE_DIRS})
 #link_directories(${LIBRDKAFKA_LIBRARY})
 
 
@@ -112,7 +181,9 @@ set (SRC_FILES
     src/bgp/EVPN.cpp
     src/bgp/linkstate/MPLinkState.cpp
     src/bgp/linkstate/MPLinkStateAttr.cpp
+    src/grpc/Grpc.cpp
     )
+
 
 # Disable warnings
 add_definitions ("-Wno-unused-result")
@@ -134,10 +205,10 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 # Set the libs to link
-set (LIBS pthread ${LIBYAML_CPP_LIBRARY} ${LIBRDKAFKA_CPP_LIBRARY} ${LIBRDKAFKA_LIBRARY} z ${SSL_LIBS} dl)
+set (LIBS ${LIBYAML_CPP_LIBRARY} ${LIBRDKAFKA_CPP_LIBRARY} ${LIBRDKAFKA_LIBRARY} z ${SSL_LIBS} ${LIBGRPC++_LIBRARY} ${LIBGRPC_LIBRARY} ${PROTOBUF_LIBRARY} ${ZLIB_LIBRARIES} pthread dl)
 
 # Set the binary
-add_executable (openbmpd ${SRC_FILES})
+add_executable (openbmpd ${SRC_FILES} ${openbmp_proto_srcs} ${openbmp_grpc_srcs})
 
 # Link the binary
 target_link_libraries (openbmpd ${LIBS})

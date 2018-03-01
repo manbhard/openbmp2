@@ -13,6 +13,7 @@
 #include <string>
 #include <list>
 #include <map>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 #include <boost/xpressive/xpressive.hpp>
 #include <boost/exception/all.hpp>
@@ -46,6 +47,7 @@ public:
     bool        debug_bgp;
     bool        debug_bmp;
     bool        debug_msgbus;
+    bool        debug_grpc;
 
     int         heartbeat_interval;      ///< Heartbeat interval in seconds for collector updates
     int   	tx_max_bytes;            ///< Maximum transmit message size
@@ -115,6 +117,19 @@ public:
     std::map<std::string, float> router_baseline_time;
     typedef std::map<std::string, float>::iterator router_baseline_time_iter;
 
+    /**
+  * Interface specific configuration items
+  */
+    struct interface_config {
+        uint16_t    grpc_port;              ///< Listening port for Grpc server
+        bool        secure;                 ///< Enable tls/ssl
+    };
+
+    interface_config interfaceConfig;
+
+    // Array of blocked peers
+    std::vector<std::string> blocked_peers;
+
     /*********************************************************************//**
      * Constructor for class
      ***********************************************************************/
@@ -164,6 +179,13 @@ private:
     void parseMapping(const YAML::Node &node);
 
     /**
+     * Parse the interface (grpc) configuration
+     *
+     * \param [in] node     Reference to the yaml NODE
+     */
+    void parseInterface(const YAML::Node &node);
+
+    /**
      * Parse matching prefix_range list and update the provided map with compiled expressions
      *
      * \param [in]  node     prefix_range list node - should be of type sequence
@@ -181,6 +203,14 @@ private:
      * \param [out] map      Reference to the map that will be updated with the compiled expressions
      */
     void parseRegexpList(const YAML::Node &node, std::string name, std::map<std::string, std::list<match_type_regex>> &map);
+
+    /**
+     * Parse the blocked peers configuration
+     *
+     * \param [in] node     Reference to the yaml NODE
+     */
+    void parseBlockedPeers(const YAML::Node &node);
+
 
     /**
      * print warning message for parsing node
