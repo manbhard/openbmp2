@@ -89,7 +89,7 @@ BMPListener::~BMPListener() {
  * \param [in] ipv6     True to open v6 socket
  */
 void BMPListener::open_socket(bool ipv4, bool ipv6) {
-    int on = 1;
+    int retval, on = 1;
 
     if (ipv4) {
         if ((sock = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
@@ -103,7 +103,8 @@ void BMPListener::open_socket(bool ipv4, bool ipv6) {
         }
 
         // Bind to the address/port
-        if (::bind(sock, (struct sockaddr *) &svr_addr, sizeof(svr_addr)) < 0) {
+        retval = ::bind(sock, (struct sockaddr *) &svr_addr, sizeof(svr_addr));
+        if (retval < 0) {
             close(sock);
             throw "ERROR: Cannot bind to IPv4 address and port";
         }
@@ -129,7 +130,9 @@ void BMPListener::open_socket(bool ipv4, bool ipv6) {
         }
 
         // Bind to the address/port
-        if (::bind(sockv6, (struct sockaddr *) &svr_addrv6, sizeof(svr_addrv6)) < 0) {
+        // Bind to the address/port
+        retval = ::bind(sockv6, (struct sockaddr *) &svr_addrv6, sizeof(svr_addrv6));
+        if (retval < 0) {
             close(sockv6);
             throw "ERROR: Cannot bind to IPv6 address and port";
         }
@@ -197,13 +200,13 @@ bool BMPListener::wait_and_accept_connection(ClientInfo &c, int timeout) {
         }
 
         else {
-            if (cur_sock == sock)  // IPv4
+            if (cur_sock == sock) {  // IPv4
                 if (accept_connection(c, true))
                     return false;
-
-            else // IPv6
+            } else {// IPv6
                 if (accept_connection(c, false))
                     return false;
+            }
 		
 	    gettimeofday(&c.startTime, NULL);	// Stores the start time for client	
 
@@ -260,9 +263,9 @@ bool BMPListener::accept_connection(ClientInfo &c, bool isIPv4) {
     }
 
     // Check if the client is blocked per configuration
-    for (size_t i=0; i < cfg->blocked_peers.size(); i++) {
-        if (strncmp(c.c_ip, cfg->blocked_peers.at(i).c_str(), strlen(c.c_ip)) == 0) {
-            LOG_INFO("Blocking peer %s per configuration", c.c_ip);
+    for (size_t i=0; i < cfg->blocked_routers.size(); i++) {
+        if (strncmp(c.c_ip, cfg->blocked_routers.at(i).c_str(), strlen(c.c_ip)) == 0) {
+            LOG_INFO("Blocking router %s per configuration", c.c_ip);
             close(c.c_sock);
             return true;
         }

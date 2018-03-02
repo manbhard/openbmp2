@@ -18,7 +18,7 @@
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-using openbmp::PeerIp;
+using openbmp::Ip;
 using openbmp::Response;
 using openbmp::OPENBMPService;
 
@@ -29,7 +29,7 @@ public:
 
     //Disable Ip request
     std::string DisablePeer(const std::string& peer_ip) {
-        PeerIp peer;
+        Ip peer;
         peer.set_ip(peer_ip);
         Response response;
 
@@ -46,12 +46,45 @@ public:
 
     //Enable Ip request
     std::string EnablePeer(const std::string& peer_ip) {
-        PeerIp peer;
+        Ip peer;
         peer.set_ip(peer_ip);
         Response response;
 
         ClientContext context;
         Status status = stub_->EnablePeer(&context, peer, &response);
+        if (status.ok()) {
+            return response.message();
+        } else {
+            std::cout << status.error_code() << ": " << status.error_message()
+                      << std::endl;
+            return "RPC failed";
+        }
+    }
+
+    std::string DisableRouter(const std::string& router_ip) {
+        Ip router;
+        router.set_ip(router_ip);
+        Response response;
+
+        ClientContext context;
+        Status status = stub_->DisablePeer(&context, router, &response);
+        if (status.ok()) {
+            return response.message();
+        } else {
+            std::cout << status.error_code() << ": " << status.error_message()
+                      << std::endl;
+            return "RPC failed";
+        }
+    }
+
+    //Enable Ip request
+    std::string EnableRouter(const std::string& router_ip) {
+        Ip router;
+        router.set_ip(router_ip);
+        Response response;
+
+        ClientContext context;
+        Status status = stub_->EnableRouter(&context, router, &response);
         if (status.ok()) {
             return response.message();
         } else {
@@ -68,8 +101,10 @@ private:
 void usage() {
     printf("syntax: openbmpd_client grpc_server_ip:port [secure] [test]\n");
     printf("\nTESTS:\n\n");
-    printf("    disable    <peer_ip>       Disable a specific peer\n");
-    printf("    enable     <peer_ip>       Enable a previously disabled peer\n");
+    printf("    disable_peer    <peer_ip>       Block a specific peer\n");
+    printf("    enable_peer     <peer_ip>       Unblock a specific peer\n");
+    printf("    disable_router  <router_ip>     Disable a specific BMP router\n");
+    printf("    enable_router   <router_ip>     Enable a previously disabled BMP router\n");
 }
 
 
@@ -119,13 +154,21 @@ int main(int argc, char** argv) {
 
     OPENBMPClient openbmp_client(channel);
 
-    if (!strcmp(argv[test_pos], "disable") && argc > (test_pos + 1)) {
+    if (!strcmp(argv[test_pos], "disable_peer") && argc > (test_pos + 1)) {
         std::string peer_ip = argv[test_pos + 1];
         std::string reply = openbmp_client.DisablePeer(peer_ip);
         std::cout << "Response received: " << reply << std::endl;
-    } else if (!strcmp(argv[test_pos], "enable") && argc > (test_pos + 1)) {
+    } else if (!strcmp(argv[test_pos], "enable_peer") && argc > (test_pos + 1)) {
         std::string peer_ip = argv[test_pos + 1];
         std::string reply = openbmp_client.EnablePeer(peer_ip);
+        std::cout << "Response received: " << reply << std::endl;
+    } else if (!strcmp(argv[test_pos], "disable_router") && argc > (test_pos + 1)) {
+        std::string router_ip = argv[test_pos + 1];
+        std::string reply = openbmp_client.DisableRouter(router_ip);
+        std::cout << "Response received: " << reply << std::endl;
+    } else if (!strcmp(argv[test_pos], "enable_router") && argc > (test_pos + 1)) {
+        std::string router_ip = argv[test_pos + 1];
+        std::string reply = openbmp_client.EnableRouter(router_ip);
         std::cout << "Response received: " << reply << std::endl;
     } else {
         printf("Invalid test '%s'\n", argv[1]);

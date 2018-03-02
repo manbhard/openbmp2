@@ -135,6 +135,9 @@ private:
     std::map<std::string, peer_info> peer_info_map;
     typedef std::map<std::string, peer_info>::iterator peer_info_map_iter;
 
+    // Check if peer is blocked, drop messages from this peer
+    bool peer_is_blocked(MsgBusInterface::obj_bgp_peer &p_entry);
+
 };
 
 #endif /* BMPReader_H_ */

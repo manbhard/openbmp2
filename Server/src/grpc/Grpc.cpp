@@ -21,7 +21,7 @@ using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 using grpc::StatusCode;
-using openbmp::PeerIp;
+using openbmp::Ip;
 using openbmp::Response;
 using openbmp::OPENBMPService;
 
@@ -31,8 +31,58 @@ public:
     Grpc *grpc;
 
 private:
-    Status DisablePeer(ServerContext* context, const PeerIp* peer,
+    Status DisableRouter(ServerContext* context, const Ip* router,
                        Response* reply) override {
+        string grpc_response;
+
+        bool not_found = true;
+        for (size_t i=0; i < grpc->cfg->blocked_routers.size(); i++) {
+            if (grpc->cfg->blocked_routers.at(i) == router->ip()) {
+                not_found = false;
+                break;
+            }
+        }
+
+        if (not_found) {
+            grpc->cfg->blocked_routers.push_back(router->ip());
+        }
+
+        for (size_t i=0; i < grpc->thr_list->size(); i++) {
+            if (strncmp(grpc->thr_list->at(i)->client.c_ip, router->ip().c_str(), strlen(router->ip().c_str())) == 0) {
+                int error = shutdown(grpc->thr_list->at(i)->client.c_sock, SHUT_RDWR);
+                if (error) {
+                    grpc_response = "Failed to close socket for router: " + router->ip() + ", error: " + strerror(error);
+                    reply->set_message(grpc_response.c_str());
+                    return Status(StatusCode::INTERNAL, reply->message());
+                }
+                grpc_response = "Disabled router: " + router->ip();
+                reply->set_message(grpc_response.c_str());
+                return Status(StatusCode::OK, reply->message());
+            }
+        }
+        grpc_response = "Router: " + router->ip() + " does not exist";
+        reply->set_message(grpc_response.c_str());
+        return Status(StatusCode::OK, reply->message());
+    }
+
+    Status EnableRouter(ServerContext* context, const Ip* router,
+                       Response* reply) override {
+        string grpc_response;
+
+        for (size_t i=0; i < grpc->cfg->blocked_routers.size(); i++) {
+            if (grpc->cfg->blocked_routers.at(i) == router->ip()) {
+                grpc->cfg->blocked_routers.erase(grpc->cfg->blocked_routers.begin() + i);
+                grpc_response = "Unblocked router: " + router->ip();
+                reply->set_message(grpc_response.c_str());
+                return Status(StatusCode::OK, reply->message());
+            }
+        }
+        reply->set_message("Router is not blocked");
+        return Status(StatusCode::OK, reply->message());
+    }
+
+    Status DisablePeer(ServerContext* context, const Ip* peer,
+                         Response* reply) override {
         string grpc_response;
 
         bool not_found = true;
@@ -47,26 +97,13 @@ private:
             grpc->cfg->blocked_peers.push_back(peer->ip());
         }
 
-        for (size_t i=0; i < grpc->thr_list->size(); i++) {
-            if (strncmp(grpc->thr_list->at(i)->client.c_ip, peer->ip().c_str(), strlen(peer->ip().c_str())) == 0) {
-                int error = shutdown(grpc->thr_list->at(i)->client.c_sock, SHUT_RDWR);
-                if (error) {
-                    grpc_response = "Failed to close socket for peer: " + peer->ip() + ", error: " + strerror(error);
-                    reply->set_message(grpc_response.c_str());
-                    return Status(StatusCode::INTERNAL, reply->message());
-                }
-                grpc_response = "Disabled peer: " + peer->ip();
-                reply->set_message(grpc_response.c_str());
-                return Status(StatusCode::OK, reply->message());
-            }
-        }
-        grpc_response = "Peer: " + peer->ip() + " does not exist";
+        grpc_response = "Peer: " + peer->ip() + " is blocked";
         reply->set_message(grpc_response.c_str());
         return Status(StatusCode::OK, reply->message());
     }
 
-    Status EnablePeer(ServerContext* context, const PeerIp* peer,
-                       Response* reply) override {
+    Status EnablePeer(ServerContext* context, const Ip* peer,
+                        Response* reply) override {
         string grpc_response;
 
         for (size_t i=0; i < grpc->cfg->blocked_peers.size(); i++) {
@@ -78,8 +115,10 @@ private:
             }
         }
 
-        return Status(StatusCode::OK, "Peer is not blocked");
+        reply->set_message("Peer is not blocked");
+        return Status(StatusCode::OK, reply->message());
     }
+
 };
 
 

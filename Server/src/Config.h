@@ -130,6 +130,10 @@ public:
     // Array of blocked peers
     std::vector<std::string> blocked_peers;
 
+    // Array of blocked routers
+    std::vector<std::string> blocked_routers;
+
+
     /*********************************************************************//**
      * Constructor for class
      ***********************************************************************/
@@ -211,6 +215,12 @@ private:
      */
     void parseBlockedPeers(const YAML::Node &node);
 
+    /**
+     * Parse the blocked routers configuration
+     *
+     * \param [in] node     Reference to the yaml NODE
+     */
+    void parseBlockedRouters(const YAML::Node &node);
 
     /**
      * print warning message for parsing node

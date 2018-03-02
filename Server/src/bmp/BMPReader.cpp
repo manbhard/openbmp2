@@ -137,6 +137,18 @@ bool BMPReader::ReadIncomingMsg(BMPListener::ClientInfo *client, MsgBusInterface
 
         // only process the peering info if the message includes it
         if (bmp_type < 4) {
+            //Check if peer is blocked by config
+            if (peer_is_blocked(p_entry)) {
+                // Read the rest of the message and discard
+                int i = 0;
+                if ((i = recv(read_fd, pBMP->bmp_packet, pBMP->getBMPLength(), MSG_WAITALL)) != pBMP->getBMPLength()) {
+                    LOG_ERR("sock=%d: Couldn't read all bytes, read %d bytes", read_fd, i);
+                }
+
+                delete pBMP;
+                return true;
+            }
+
             // Update p_entry hash_id now that add_Router updated it.
             memcpy(p_entry.router_hash_id, r_object.hash_id, sizeof(r_object.hash_id));
             peer_info_key =  p_entry.peer_addr;
@@ -341,6 +353,17 @@ bool BMPReader::ReadIncomingMsg(BMPListener::ClientInfo *client, MsgBusInterface
 
     return rval;
 }
+
+bool BMPReader::peer_is_blocked(MsgBusInterface::obj_bgp_peer &p_entry) {
+    for (size_t i=0; i < cfg->blocked_peers.size(); i++) {
+        if (strncmp(p_entry.peer_addr, cfg->blocked_peers.at(i).c_str(), cfg->blocked_peers.at(i).size()) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 bool BMPReader::checkRIBdumpRate(uint32_t timeStamp, int ribSeq) {
     int time, currRate;                                  

@@ -59,6 +59,8 @@ Config::Config() {
     interfaceConfig.grpc_port = 50051;
     interfaceConfig.secure = false;
 
+    blocked_peers.clear();
+
     /*
      * Initialized the kafka topic names
      *      The keys match the configuration node/vars. Topic name nodes will be ignored if
@@ -112,7 +114,8 @@ void Config::load(const char *cfg_filename) {
                         parseInterface(node);
                     else if (key.compare("blocked_peers") == 0)
                         parseBlockedPeers(node);
-
+                    else if (key.compare("blocked_routers") == 0)
+                        parseBlockedRouters(node);
                     else if (debug_general)
                         std::cout << "   Config: Key " << key << " Type " << node.Type() << std::endl;
                 }
@@ -781,21 +784,46 @@ void Config::parseInterface(const YAML::Node &node) {
 /**
  * Parse Blocked peers and update the blocked peers array
  *
- * \param [in]  node     regex list node - should be of type sequence
+ * \param [in]  node     Reference to the yaml NODE
  */
 void Config::parseBlockedPeers(const YAML::Node &node) {
-    std::string value;
+    if (node["peers"] && node["peers"].Type() == YAML::NodeType::Sequence) {
+        std::string value;
 
-    for (std::size_t i = 0; i < node.size(); i++) {
-        try {
-            value = node[i].as<std::string>();
-            blocked_peers.push_back(value);
+        for (std::size_t i = 0; i < node["peers"].size(); i++) {
+            try {
+                value = node["peers"][i].as<std::string>();
+                blocked_peers.push_back(value);
 
-        } catch (YAML::TypedBadConversion <std::string> err) {
-            printWarning("Blocked peer is not of type string", node[i]);
+            } catch (YAML::TypedBadConversion <std::string> err) {
+                printWarning("Blocked peer is not of type string", node["peers"][i]);
+            }
+
+            std::cout << "   Config: Blocking peer: " << node["peers"][i].as<std::string>() << std::endl;
         }
+    }
+}
 
-        std::cout << "   Config: Blocking peer: " << node[i].as<std::string>() << std::endl;
+/**
+ * Parse Blocked routers and update the blocked routers array
+ *
+ * \param [in]  node     Reference to the yaml NODE
+ */
+void Config::parseBlockedRouters(const YAML::Node &node) {
+    if (node["routers"] && node["routers"].Type() == YAML::NodeType::Sequence) {
+        std::string value;
+
+        for (std::size_t i = 0; i < node["routers"].size(); i++) {
+            try {
+                value = node["routers"][i].as<std::string>();
+                blocked_routers.push_back(value);
+
+            } catch (YAML::TypedBadConversion <std::string> err) {
+                printWarning("Blocked router is not of type string", node["routers"][i]);
+            }
+
+            std::cout << "   Config: Blocking router: " << node["routers"][i].as<std::string>() << std::endl;
+        }
     }
 }
 

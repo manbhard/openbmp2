@@ -14,15 +14,21 @@ package openbmp;
 // The BGP2BMP Service Interface.
 service OPENBMPService {
     //The disable peering session RPC
-    rpc DisablePeer (PeerIp) returns (Response) {}
+    rpc DisablePeer (Ip) returns (Response) {}
 
     //The enable peering session RPC
-    rpc EnablePeer (PeerIp) returns (Response) {}
+    rpc EnablePeer (Ip) returns (Response) {}
+
+    //The disable BMP router session RPC
+    rpc DisableRouter (Ip) returns (Response) {}
+
+    //The enable BMP router session RPC
+    rpc EnableRouter (Ip) returns (Response) {}
 
 }
 
 // The request message containing the peer's Ip in printable format.
-message PeerIp {
+message Ip {
     string ip = 1;
 }
 
