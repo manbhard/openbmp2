@@ -62,6 +62,8 @@ Config::Config() {
 
     blocked_peers.clear();
 
+    testFile = NULL;
+
     /*
      * Initialized the kafka topic names
      *      The keys match the configuration node/vars. Topic name nodes will be ignored if

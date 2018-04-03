@@ -1078,6 +1078,11 @@ void msgBus_kafka::update_unicastPrefix(obj_bgp_peer &peer, std::vector<obj_rib>
                 break;
         }
 
+        if (cfg->testFile) {
+            fwrite(buf2, strlen(buf2), 1, cfg->testFile);
+            fflush(cfg->testFile);
+        }
+
         // Cat the entry to the query buff
         if (buf_len < MSGBUS_WORKING_BUF_SIZE /* size of buf */)
             strcat(prep_buf, buf2);

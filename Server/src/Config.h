@@ -147,6 +147,9 @@ public:
      ***********************************************************************/
     void load(const char *cfg_filename);
 
+    //File to store test data
+    FILE    *testFile;                   ///< Log file
+
 private:
     /**
      * Parse the base configuration

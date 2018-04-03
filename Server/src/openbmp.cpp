@@ -39,6 +39,7 @@ const char *cfg_filename    = NULL;                 // Configuration file name t
 const char *log_filename    = NULL;                 // Output file to log messages to
 const char *debug_filename  = NULL;                 // Debug file to log messages to
 const char *pid_filename    = NULL;                 // PID file to record the daemon pid
+const char *test_filename   = NULL;                 // Test file to dump data
 bool        run             = true;                 // Indicates if server should run
 bool        run_foreground  = false;                // Indicates if server should run in forground
 
@@ -63,6 +64,7 @@ void Usage(char *prog) {
     cout << "     -pid <filename>   PID filename, default is no pid file" << endl;
     cout << "     -l <filename>     Log filename, default is STDOUT" << endl;
     cout << "     -d <filename>     Debug filename, default is log filename" << endl;
+    cout << "     -t <filename>     Test filename" << endl;
     cout << "     -f                Run in foreground instead of daemon (use for upstart)" << endl;
 
     cout << endl << "  OTHER OPTIONS:" << endl;
@@ -354,6 +356,20 @@ bool ReadCmdArgs(int argc, char **argv, Config &cfg) {
             // Set the new filename
             pid_filename = argv[++i];
         }
+
+        // Config filename
+        else if (!strcmp(argv[i], "-t")) {
+            // We expect the next arg to be the filename
+            if (i + 1 >= argc) {
+                cout << "INVALID ARG: -t expects the filename to be specified" << endl;
+                return true;
+            }
+            // Set the new filename
+            test_filename = argv[++i];
+            if ((cfg.testFile = fopen(test_filename, "a+")) == NULL)
+                throw strerror(errno);
+        }
+
     }
 
     return false;
